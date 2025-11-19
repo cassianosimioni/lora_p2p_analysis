@@ -1,0 +1,27 @@
+# Dependências que o Streamlit CC precisa instalar
+streamlit
+
+# Base Dependencies
+python-dotenv
+numpy
+pandas
+scipy
+matplotlib
+seaborn
+scikit-learn
+requests
+aiohttp
+uvicorn
+fastapi
+flask
+paho-mqtt
+pyserial
+pycryptodome
+
+# Se o seu projeto usa LoRa
+pySX127x
+pylora
+
+# Se o seu projeto usa WebSockets
+python-socketio
+websockets
