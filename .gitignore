@@ -1,0 +1,11 @@
+# Exclui ambientes virtuais comuns
+venv/
+.venv/
+__pycache__/
+
+# Exclui arquivos de sistema operacional
+.DS_Store
+
+# Exclui arquivos de dados grandes
+*.log
+*.sqlite
