@@ -204,9 +204,9 @@ if 'super_position_result' not in st.session_state:
 if 'trigger_balloons' not in st.session_state:
     st.session_state['trigger_balloons'] = False
 
-st.title("🛰️ Sistema Integrado: Triangulação & Super-Posição")
+st.title("🛰️ Normalização de Sequência & Otimização de Cluster")
 
-tab1, tab2 = st.tabs(["📡 1. Triangulação (Passo a Passo)", "🎯 2. Super-Posição (Consolidado)"])
+tab1, tab2 = st.tabs(["📡 1. Triangulação", "🎯 2. Otimização de Cluster"])
 
 # ==========================================
 # ABA 1: TRIANGULAÇÃO
@@ -261,7 +261,7 @@ with tab1:
 
         with c4:
             st.write("") 
-            if st.button("➕ Enviar para Super-Posição"):
+            if st.button("➕ Enviar para Clustering"):
                 st.session_state['stored_points'].append(res)
                 st.success(f"Adicionado! Total acumulado: {len(st.session_state['stored_points'])}")
                 st.session_state['last_triangulation'] = None
@@ -286,7 +286,7 @@ with tab1:
         st_folium(m, height=400, use_container_width=True, key="map_single")
 
 # ==========================================
-# ABA 2: SUPER-POSIÇÃO (FINAL)
+# ABA 2: OTIMIZAÇÃO DE CLUSTER (FINAL)
 # ==========================================
 with tab2:
     st.markdown("### 2. Consolidação de Múltiplas Estimativas")
@@ -311,7 +311,7 @@ with tab2:
 
         st.divider()
         
-        if st.button("🎯 EXECUTAR SUPER-POSIÇÃO", type="primary"):
+        if st.button("🎯 EXECUTAR MÁGICA", type="primary"):
             final_res = consolidate_super_position(points)
             
             if final_res:
