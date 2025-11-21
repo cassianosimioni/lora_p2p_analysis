@@ -32,57 +32,32 @@ def process_triangulation(gateway_positions_raw):
         try:
             if isinstance(data, str): data = json.loads(data)
             
-            # Garante acesso seguro aos dicionários
-            data_payload = data.get('data', {})
-            gw_pos = data_payload.get('gatewayPosition', [{}])[0]
-            gw_gps = data_payload.get('gatewayGps', {})
+            gw_pos = data['data'].get('gatewayPosition', [{}])[0]
+            gw_gps = data['data'].get('gatewayGps', {})
             
             if not gw_pos: continue
             
             lat_raw = gw_pos.get('latitude')
             lon_raw = gw_pos.get('longitude')
-
-            # --- 1. VALIDAÇÃO ESTRITA DE RSSI ---
-            # Se não tiver dados de rádio, ignoramos o gateway para não sujar a média
-            lora_radio = data_payload.get('loraRadio', {})
-            if 'RSSI' not in lora_radio:
-                # Gateway descartado: Sem medição de sinal
-                continue
+            rssi = data['data']['loraRadio']['RSSI']
             
-            rssi = lora_radio['RSSI']
-            # ------------------------------------
+            try:
+                fix_state = int(gw_gps.get('fixState', 0))
+            except (ValueError, TypeError):
+                fix_state = 0
             
-            # --- 2. CORREÇÃO DO FIX STATE (TEXTO OU NÚMERO) ---
-            FIX_MAP = {
-                "FS_FIX_NOT_AVAILABLE": 0,
-                "FS_FIX_TIME_ONLY": 1,
-                "FS_FIX_2D": 2,
-                "FS_FIX_3D": 3
-            }
-
-            raw_fix = gw_gps.get('fixState', 0)
-            
-            if isinstance(raw_fix, int):
-                fix_state = raw_fix
-            else:
-                # Converte string para int usando o mapa. Se não achar, assume 0.
-                fix_state = FIX_MAP.get(str(raw_fix), 0)
-            # ------------------------------------------------
-
             if lat_raw is None or lon_raw is None: continue
 
             lat = lat_raw / GATEWAY_COORDINATE_DIVISOR
             lon = lon_raw / GATEWAY_COORDINATE_DIVISOR
 
-            # Aceita apenas Fix 2D (2) ou 3D (3)
             if fix_state in [2, 3]:
                 valid_gateways.append({'lat': lat, 'lon': lon, 'rssi': rssi})
                 
-        except Exception as e:
-            # Se o JSON estiver muito quebrado, pula para o próximo
+        except Exception:
             continue
 
-    if not valid_gateways: return None, "Nenhum gateway válido com GPS Fix (2D/3D) e RSSI encontrado."
+    if not valid_gateways: return None, "Nenhum gateway válido com GPS Fix (2D ou 3D) encontrado."
 
     # ---------------------------------------------------------
     # 2. NOVO MÉTODO DE FILTRAGEM (O LÍDER DO GRUPO)
@@ -99,7 +74,7 @@ def process_triangulation(gateway_positions_raw):
             for g2 in valid_gateways:
                 if g1 == g2: continue
                 current_dist_sum += calculate_haversine_distance(g1['lat'], g1['lon'], g2['lat'], g2['lon'])
-
+            
             # O gateway com a MENOR soma de distâncias é o que está mais no "meio" do cluster real
             if current_dist_sum < min_total_dist:
                 min_total_dist = current_dist_sum
@@ -119,6 +94,8 @@ def process_triangulation(gateway_positions_raw):
         
         if dist < MAX_DISTANCE_KM:
             filtered_gateways.append(gateway)
+        # else: 
+            # print(f"Gateway descartado! Distância {dist:.2f}km do centro do cluster.")
 
     if not filtered_gateways: return None, "Todos os gateways foram descartados (Erro Crítico de Dispersão)."
 
@@ -130,16 +107,12 @@ def process_triangulation(gateway_positions_raw):
 
     for gateway in filtered_gateways:
         power_weight = 10**(gateway['rssi'] / 10.0)
-        
         latitude_weighted += (gateway['lat'] * power_weight)
         longitude_weighted += (gateway['lon'] * power_weight)
         total_power_weight += power_weight
-        
         if gateway['rssi'] > max_rssi:
             max_rssi = gateway['rssi']
             
-    if total_power_weight == 0: return None, "Erro matemático: Peso total zero."
-
     estimated_lat = latitude_weighted / total_power_weight
     estimated_lon = longitude_weighted / total_power_weight
     
@@ -152,7 +125,7 @@ def process_triangulation(gateway_positions_raw):
         "error": estimated_error,
         "gateways_used": filtered_gateways,
         "max_rssi": max_rssi,
-        "total_raw_gateways": len(valid_gateways)
+        "total_raw_gateways": len(valid_gateways) # Info útil para debug
     }, None
 
 def consolidate_super_position(position_series):
@@ -225,9 +198,8 @@ with tab1:
         else:
             try:
                 raw_data = input_text.strip()
-                # Tenta transformar objetos colados ("}{") em uma lista válida
                 if not raw_data.startswith("["):
-                    raw_lines = raw_data.replace('}{', '}\n{').split('\n')
+                    raw_lines = raw_data.split('\n')
                     parsed_data = [json.loads(line) for line in raw_lines if line.strip()]
                 else:
                     parsed_data = json.loads(raw_data)
@@ -241,7 +213,7 @@ with tab1:
                     st.session_state['last_triangulation'] = result
                     st.toast('Cálculo realizado!', icon='✅')
             except Exception as e:
-                st.error(f"Erro no JSON ou Processamento: {e}")
+                st.error(f"Erro no JSON: {e}")
 
     if st.session_state['last_triangulation']:
         res = st.session_state['last_triangulation']
@@ -251,11 +223,11 @@ with tab1:
         c1.metric("Lat", f"{res['lat']:.6f}")
         c2.metric("Lon", f"{res['lon']:.6f}")
         c3.metric("Erro", f"{res['error']} m")
-
+        
         # Feedback visual de quantos gateways foram descartados
         discarded_count = res['total_raw_gateways'] - len(res['gateways_used'])
         if discarded_count > 0:
-            st.warning(f"⚠️ Atenção: {discarded_count} gateway(s) descartado(s) (Longe do cluster ou sem RSSI/GPS Fix).")
+            st.warning(f"⚠️ Atenção: {discarded_count} gateway(s) descartado(s) por estar(em) longe do cluster principal.")
         else:
             st.success("Todos os gateways válidos foram usados.")
 
