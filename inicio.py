@@ -1,4 +1,13 @@
 import streamlit as st
+import os
+
+# --- CÓDIGO DE DEBUG (Apague depois) ---
+st.write("📂 Arquivos na pasta raiz:", os.listdir('.'))
+if os.path.exists('pages'):
+    st.write("📂 Arquivos na pasta 'pages':", os.listdir('pages'))
+else:
+    st.error("🚨 A pasta 'pages' não foi encontrada!")
+# ---------------------------------------
 
 st.set_page_config(
     page_title="Portal de Rastreamento",
