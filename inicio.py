@@ -1,29 +1,29 @@
 import streamlit as st
 import os
 
-st.error("🔍 MODO DEBUG ATIVADO")
+# st.error("🔍 MODO DEBUG ATIVADO")
 
-# 1. Verifica se a pasta pages existe (seja qual for o case)
-pastas_raiz = os.listdir('.')
-if 'pages' in pastas_raiz:
-    st.success("✅ Pasta 'pages' encontrada!")
+# # 1. Verifica se a pasta pages existe (seja qual for o case)
+# pastas_raiz = os.listdir('.')
+# if 'pages' in pastas_raiz:
+#     st.success("✅ Pasta 'pages' encontrada!")
     
-    # 2. Lista EXATAMENTE como os arquivos estão nomeados lá dentro
-    arquivos = os.listdir('pages')
-    st.write("📂 Arquivos encontrados dentro de 'pages':")
-    st.code(arquivos) # Vai mostrar a lista exata, ex: ['2_versao_2.py', ...]
+#     # 2. Lista EXATAMENTE como os arquivos estão nomeados lá dentro
+#     arquivos = os.listdir('pages')
+#     st.write("📂 Arquivos encontrados dentro de 'pages':")
+#     st.code(arquivos) # Vai mostrar a lista exata, ex: ['2_versao_2.py', ...]
     
-    # 3. Teste de string
-    arquivo_alvo = "2_Versao_2.py" # Como está no seu switch_page
-    if arquivo_alvo in arquivos:
-        st.success(f"✅ O arquivo '{arquivo_alvo}' bate perfeitamente!")
-    else:
-        st.error(f"🚨 ERRO: Você está chamando '{arquivo_alvo}', mas o arquivo real tem outro nome (veja a lista acima)!")
+#     # 3. Teste de string
+#     arquivo_alvo = "2_Versao_2.py" # Como está no seu switch_page
+#     if arquivo_alvo in arquivos:
+#         st.success(f"✅ O arquivo '{arquivo_alvo}' bate perfeitamente!")
+#     else:
+#         st.error(f"🚨 ERRO: Você está chamando '{arquivo_alvo}', mas o arquivo real tem outro nome (veja a lista acima)!")
 
-else:
-    st.error(f"🚨 A pasta 'pages' não foi encontrada. O que existe na raiz é: {pastas_raiz}")
+# else:
+#     st.error(f"🚨 A pasta 'pages' não foi encontrada. O que existe na raiz é: {pastas_raiz}")
 
-st.divider()
+# st.divider()
 
 st.set_page_config(
     page_title="Portal de Rastreamento",
