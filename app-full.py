@@ -22,7 +22,7 @@ def calculate_haversine_distance(lat1, lon1, lat2, lon2):
     return R * c
 
 def process_triangulation(gateway_positions_raw):
-    MAX_DISTANCE_KM = 5.0
+    MAX_DISTANCE_KM = 1.5
     GATEWAY_COORDINATE_DIVISOR = 10000000.0
 
     valid_gateways = []
