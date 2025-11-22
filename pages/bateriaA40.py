@@ -5,7 +5,7 @@ import time
 
 # --- Configuração da Página ---
 st.set_page_config(
-    page_title="Diagnóstico de Vida Útil - Rastreador A40",
+    page_title="Vida Útil de Bateria - Rastreador A40B v3",
     page_icon="🔋",
     layout="wide"
 )
@@ -29,14 +29,13 @@ def process_packet_data(packet: dict):
         diag = data['accessories'][0]['diagnostic']
         
         # --- ÁREA DE CORREÇÃO (Blindagem contra Strings) ---
-        # Converte explicitamente para float/int caso venha como texto "12345" no JSON
         
         # 1. Timestamp e Serial
         raw_ts = data.get('deviceDateTime', time.time())
         device_ts = float(raw_ts) 
         serial = packet.get('serial', 'Desconhecido')
         
-        # 2. Dados Operacionais (Forçando conversão para evitar o erro 'str object')
+        # 2. Dados Operacionais (Forçando conversão float/int)
         interval_total_use_mas = float(diag['battery']['intervalTotalUse'])
         uptime_seconds = float(data['flags']['deviceInfo']['uptime'])
         sleep_ms = float(diag['core']['intervalSleep'])
@@ -100,9 +99,9 @@ def process_packet_data(packet: dict):
 
 # --- Interface do Streamlit ---
 
-st.title("🔋 Diagnóstico Avançado de Bateria (Li-MnO2 P2P)")
+st.title("🔋 Diagnóstico Avançado de Bateria - A40B v3")
 
-# 1. O Visual Rico do Expander (Mantido)
+# 1. O Visual Rico do Expander
 with st.expander("ℹ️ Parâmetros da Análise (A40)", expanded=False):
     st.info(f"""
     - **Capacidade Nominal:** {BATTERY_CAPACITY_NOMINAL} mAh
@@ -111,15 +110,14 @@ with st.expander("ℹ️ Parâmetros da Análise (A40)", expanded=False):
     - **Método:** Contagem de Cargas (Coulomb Counting) usando o contador persistente `intervalTotalUse`.
     """)
 
-# 2. Formulário com Botão (Funcionalidade Nova)
+# 2. Formulário com Botão
 with st.form("input_form"):
     st.markdown("Cole o pacote JSON do rastreador abaixo e clique em **Verificar**.")
     json_input = st.text_area("Payload JSON:", height=200, help="Cole o objeto JSON completo iniciado por {")
     
-    # O botão que impede o refresh automático
     submitted = st.form_submit_button("🔍 Verificar Bateria e Vida Útil")
 
-# 3. Exibição dos Resultados (Visual Rico Restaurado)
+# 3. Exibição dos Resultados
 if submitted and json_input:
     try:
         packet_raw = json.loads(json_input)
@@ -128,7 +126,7 @@ if submitted and json_input:
         if results:
             st.divider()
             
-            # Cabeçalho com dados básicos
+            # Cabeçalho
             col_head1, col_head2, col_head3 = st.columns(3)
             col_head1.metric("Serial do Dispositivo", results['serial'])
             col_head2.metric("Data do Pacote (Device)", results['device_ts'])
@@ -136,17 +134,18 @@ if submitted and json_input:
             
             st.divider()
 
-            # Seção 1: Perfil Operacional (Sleep vs Ativo)
+            # Seção 1: Perfil Operacional
             st.subheader("1. Perfil Operacional")
             c1, c2, c3 = st.columns(3)
             c1.metric("Tempo em Sleep (Dormindo)", results['sleep_str'], delta=f"{results['sleep_pct']:.1f}% do tempo")
             c2.metric("Tempo Ativo (Acordado)", results['active_str'])
-            c3.info("Dispositivos descartáveis devem passar a maior parte do tempo em Sleep para durar anos.")
+            
+            # Texto alterado aqui:
+            c3.info("Esse tipo de dispositivo deve passar a maior parte do tempo em Sleep para durar anos.")
 
             # Seção 2: Análise Profunda da Bateria
             st.subheader(f"2. Saúde da Bateria (Base: {BATTERY_CAPACITY_REAL:.1f} mAh Reais)")
             
-            # Barra de progresso visual
             st.progress(int(results['pct_remaining']), text=f"Bateria Restante Estimada: {results['pct_remaining']:.2f}%")
 
             b1, b2, b3 = st.columns(3)
@@ -161,10 +160,10 @@ if submitted and json_input:
             b2.metric(
                 label="Disponível para Uso",
                 value=f"{results['remaining_mah']:.2f} mAh",
-                value_help="Capacidade Real - Consumido"
+                help="Capacidade Real - Consumido" # <--- CORREÇÃO AQUI: Era 'value_help', agora é 'help'
             )
             
-            # Seção 3: Predição de Término (Com o visual de alerta original)
+            # Seção 3: Predição de Término
             st.subheader("3. Predição de Esgotamento")
             
             pred = results['prediction']
