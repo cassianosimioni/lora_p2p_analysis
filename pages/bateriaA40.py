@@ -5,15 +5,27 @@ import time
 
 # --- Configuração da Página e CSS ---
 st.set_page_config(
-    page_title="Diagnóstico de Vida Útil - Rastreador A40",
+    page_title="Diagnóstico de Vida Útil de Bateria - Rastreador A40B v3",
     page_icon="🔋",
     layout="wide"
 )
 
-# CSS para esconder os ícones de link (🔗) nos cabeçalhos
+# CSS Agressivo para remover os ícones de âncora (🔗)
 hide_anchor_links = """
     <style>
-    h1 > a, h2 > a, h3 > a, h4 > a, h5 > a, h6 > a {
+    /* Esconde o link de âncora padrão do Streamlit */
+    .anchor-link { display: none !important; }
+    
+    /* Regra genérica para qualquer link dentro de headers (h1 até h6) */
+    h1 a, h2 a, h3 a, h4 a, h5 a, h6 a {
+        display: none !important;
+        pointer-events: none;
+        cursor: default;
+        opacity: 0;
+    }
+    
+    /* Esconde container de ações do header se existir */
+    [data-testid="stHeaderActionElements"] {
         display: none !important;
     }
     </style>
@@ -99,7 +111,7 @@ def process_packet_data(packet: dict):
 
 # --- Interface do Streamlit ---
 
-st.title("🔋 Diagnóstico Avançado de Bateria (Li-MnO2 P2P)")
+st.title("🔋 Diagnóstico Avançado de Bateria - A40B v3")
 
 # 1. O Visual Rico do Expander
 with st.expander("ℹ️ Parâmetros da Análise (A40)", expanded=False):
@@ -146,27 +158,25 @@ if submitted and json_input:
             # --- BARRA DE PROGRESSO COLORIDA CUSTOMIZADA (HTML/CSS) ---
             pct = results['pct_remaining']
             
-            # Definição das cores baseada na porcentagem
             if pct > 50:
-                bar_color = "#28a745" # Verde (Bootstrap Success)
+                bar_color = "#28a745" # Verde
             elif pct > 20:
-                bar_color = "#ffc107" # Amarelo (Bootstrap Warning)
+                bar_color = "#ffc107" # Amarelo
             elif pct > 5:
-                bar_color = "#dc3545" # Vermelho (Bootstrap Danger)
+                bar_color = "#dc3545" # Vermelho
             else:
-                bar_color = "#6f42c1" # Roxo (Crítico/Deep discharge)
-
-            # HTML da barra customizada
+                bar_color = "#6f42c1" # Roxo
+            
+            # Renderização HTML da Barra
             st.markdown(f"""
                 <div style="margin-bottom: 10px;">Bateria Restante Estimada: <b>{pct:.2f}%</b></div>
-                <div style="background-color: #e9ecef; border-radius: 10px; padding: 2px;">
+                <div style="background-color: #e9ecef; border-radius: 10px; padding: 2px; margin-bottom: 20px;">
                     <div style="width: {pct}%; background-color: {bar_color}; height: 25px; border-radius: 8px; text-align: center; color: white; font-weight: bold; line-height: 25px; transition: width 0.5s;">
                         {pct:.0f}%
                     </div>
                 </div>
-                <br>
             """, unsafe_allow_html=True)
-            # --- FIM DA BARRA CUSTOMIZADA ---
+            # --- FIM DA BARRA ---
 
             b1, b2, b3 = st.columns(3)
             
