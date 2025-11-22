@@ -20,24 +20,30 @@ BATTERY_CAPACITY_REAL = BATTERY_CAPACITY_NOMINAL * EFFICIENCY_FACTOR # 1572.5 mA
 def format_duration(seconds: int) -> str:
     """Formata segundos em H:M:S legível."""
     if seconds < 0: seconds = 0
-    return str(timedelta(seconds=seconds)).split('.')[0]
+    return str(timedelta(seconds=int(seconds))).split('.')[0]
 
 def process_packet_data(packet: dict):
-    """Extrai e calcula os dados cruciais do JSON."""
+    """Extrai e calcula os dados cruciais do JSON com tratamento de tipos."""
     try:
         data = packet.get('data', {})
         diag = data['accessories'][0]['diagnostic']
         
-        # 1. Extração dos Dados Brutos
-        device_ts = data.get('deviceDateTime', time.time()) # Timestamp do dispositivo
+        # --- ÁREA DE CORREÇÃO (Blindagem contra Strings) ---
+        # Converte explicitamente para float/int caso venha como texto "12345" no JSON
+        
+        # 1. Timestamp e Serial
+        raw_ts = data.get('deviceDateTime', time.time())
+        device_ts = float(raw_ts) 
         serial = packet.get('serial', 'Desconhecido')
         
-        # Consumo persistente em mAs (O dado mais importante)
-        interval_total_use_mas = diag['battery']['intervalTotalUse']
+        # 2. Dados Operacionais (Forçando conversão para evitar o erro 'str object')
+        interval_total_use_mas = float(diag['battery']['intervalTotalUse'])
+        uptime_seconds = float(data['flags']['deviceInfo']['uptime'])
+        sleep_ms = float(diag['core']['intervalSleep'])
         
-        # Tempos operacionais
-        uptime_seconds = data['flags']['deviceInfo']['uptime']
-        sleep_ms = diag['core']['intervalSleep']
+        # --- FIM DA ÁREA DE CORREÇÃO ---
+
+        # Cálculos
         sleep_seconds = sleep_ms / 1000.0
         active_seconds = uptime_seconds - sleep_seconds
 
@@ -52,7 +58,6 @@ def process_packet_data(packet: dict):
         pct_remaining = (remaining_mah / BATTERY_CAPACITY_REAL) * 100.0
 
         # 3. Cálculo de Predição (Data de Esgotamento)
-        # Calcula a taxa de consumo por hora baseada no tempo de vida reportado (uptime)
         uptime_hours = uptime_seconds / 3600.0
         prediction_data = None
 
@@ -77,9 +82,9 @@ def process_packet_data(packet: dict):
         return {
             'serial': serial,
             'device_ts': datetime.fromtimestamp(device_ts).strftime("%d/%m/%Y %H:%M:%S"),
-            'uptime_str': format_duration(int(uptime_seconds)),
-            'sleep_str': format_duration(int(sleep_seconds)),
-            'active_str': format_duration(int(active_seconds)),
+            'uptime_str': format_duration(uptime_seconds),
+            'sleep_str': format_duration(sleep_seconds),
+            'active_str': format_duration(active_seconds),
             'sleep_pct': (sleep_seconds / uptime_seconds) * 100 if uptime_seconds > 0 else 0,
             'used_mah': used_mah,
             'remaining_mah': remaining_mah,
@@ -88,16 +93,17 @@ def process_packet_data(packet: dict):
             'prediction': prediction_data
         }
 
-    except (KeyError, IndexError, TypeError) as e:
+    except (KeyError, IndexError, TypeError, ValueError) as e:
         st.error(f"Erro ao processar estrutura do JSON: {e}")
+        st.caption(f"Dica de Debug: O erro ocorreu ao tentar ler o campo que causou {type(e).__name__}")
         return None
 
 # --- Interface do Streamlit ---
 
 st.title("🔋 Diagnóstico Avançado de Bateria (Li-MnO2 P2P)")
-st.markdown("Cole o pacote JSON do rastreador abaixo para análise baseada em Coulomb Counting persistente.")
 
-with st.expander("ℹ️ Parâmetros da Análise", expanded=False):
+# 1. O Visual Rico do Expander (Mantido)
+with st.expander("ℹ️ Parâmetros da Análise (A40)", expanded=False):
     st.info(f"""
     - **Capacidade Nominal:** {BATTERY_CAPACITY_NOMINAL} mAh
     - **Fator de Eficiência:** {int(EFFICIENCY_FACTOR*100)}% (Considerando autodescarga e picos de corrente)
@@ -105,10 +111,16 @@ with st.expander("ℹ️ Parâmetros da Análise", expanded=False):
     - **Método:** Contagem de Cargas (Coulomb Counting) usando o contador persistente `intervalTotalUse`.
     """)
 
-# Área de Input
-json_input = st.text_area("Cole o JSON do pacote aqui:", height=250, help="Cole o objeto JSON completo iniciado por {")
+# 2. Formulário com Botão (Funcionalidade Nova)
+with st.form("input_form"):
+    st.markdown("Cole o pacote JSON do rastreador abaixo e clique em **Verificar**.")
+    json_input = st.text_area("Payload JSON:", height=200, help="Cole o objeto JSON completo iniciado por {")
+    
+    # O botão que impede o refresh automático
+    submitted = st.form_submit_button("🔍 Verificar Bateria e Vida Útil")
 
-if json_input:
+# 3. Exibição dos Resultados (Visual Rico Restaurado)
+if submitted and json_input:
     try:
         packet_raw = json.loads(json_input)
         results = process_packet_data(packet_raw)
@@ -138,7 +150,7 @@ if json_input:
             st.progress(int(results['pct_remaining']), text=f"Bateria Restante Estimada: {results['pct_remaining']:.2f}%")
 
             b1, b2, b3 = st.columns(3)
-            # Usando formatação personalizada para as métricas
+            
             b1.metric(
                 label="Já Consumido (Gasto)",
                 value=f"{results['used_mah']:.2f} mAh",
@@ -152,7 +164,7 @@ if json_input:
                 value_help="Capacidade Real - Consumido"
             )
             
-            # Seção 3: Predição de Término
+            # Seção 3: Predição de Término (Com o visual de alerta original)
             st.subheader("3. Predição de Esgotamento")
             
             pred = results['prediction']
@@ -175,5 +187,5 @@ if json_input:
     except json.JSONDecodeError:
         st.error("Erro: O texto colado não é um JSON válido. Verifique a formatação.")
 
-else:
-    st.info("Aguardando input JSON...")
+elif not json_input and submitted:
+    st.warning("Por favor, cole o JSON antes de clicar em verificar.")
